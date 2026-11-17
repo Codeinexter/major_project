@@ -1,0 +1,65 @@
+# Aligned FedAvg run (same recipe as the centralized baseline). Run from the "federated learning" folder:
+#   SEED=42 docker compose up --build        (use SEED=43, 44 for more seeds)
+# Needs imagenet_init.pth next to this file (created in the notebook).
+# Edit ROUNDS / LOCAL_EPOCHS / PARTITION / ALPHA in the x-fl block below (shared by all containers).
+x-fl: &fl
+  NUM_CLIENTS: "3"
+  ROUNDS: "30"              # = centralized epochs (one round ~ one pass over the training set)
+  LOCAL_EPOCHS: "1"
+  PARTITION: "iid"          # iid | noniid
+  ALPHA: "0.5"              # only used for noniid; smaller = more skewed
+  SEED: "${SEED:-42}"
+  COSINE_LR: "1"            # cosine decay over rounds, as in the centralized run
+  PERSIST_OPT: "1"          # keep AdamW state across rounds
+
+x-client: &client
+  build: .
+  command: ["client.py"]
+  depends_on:
+    server: { condition: service_healthy }
+  volumes:
+    - ./dataset:/data/dataset:ro
+    - ./split_train.csv:/data/split_train.csv:ro
+    - ./imagenet_init.pth:/data/init.pth:ro
+    - ./shared:/shared
+
+services:
+  server:
+    build: .
+    command: ["server.py"]
+    container_name: fl_server
+    cpus: "2.0"
+    mem_limit: 2g
+    environment:
+      <<: *fl
+      CPU_THREADS: "2"
+    volumes:
+      - ./dataset:/data/dataset:ro
+      - ./split_val.csv:/data/split_val.csv:ro
+      - ./split_test.csv:/data/split_test.csv:ro
+      - ./imagenet_init.pth:/data/init.pth:ro
+      - ./shared:/shared
+      - ./outputs_aligned_seed${SEED:-42}:/outputs   # one folder per seed; earlier results untouched
+    healthcheck:
+      test: ["CMD", "test", "-f", "/shared/ready"]
+      interval: 3s
+      retries: 600
+
+  client0:
+    <<: *client
+    container_name: edge0
+    cpus: "1.0"
+    mem_limit: 1g
+    environment: { <<: *fl, CLIENT_ID: "0", CPU_THREADS: "1" }
+  client1:
+    <<: *client
+    container_name: edge1
+    cpus: "0.5"
+    mem_limit: 768m
+    environment: { <<: *fl, CLIENT_ID: "1", CPU_THREADS: "1" }
+  client2:
+    <<: *client
+    container_name: edge2
+    cpus: "2.0"
+    mem_limit: 1536m
+    environment: { <<: *fl, CLIENT_ID: "2", CPU_THREADS: "2" }

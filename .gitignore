@@ -1,0 +1,37 @@
+# ---- data (large, licensed, not redistributable) ----
+dataset/
+split_*.csv
+
+# ---- model weights and per-round exchange files ----
+*.pth
+*.pt
+shared/
+
+# ---- experiment outputs and logs ----
+outputs*/
+*.log
+final_metrics.json
+
+# ---- generated figures and tables ----
+*.png
+cmp_*.csv
+fl30_*.csv
+fl30_*.txt
+client_eval_cache.csv
+client_training_time.png
+client_training_time.csv
+client_training_time.txt
+plot_fl_clients.ipynb
+
+# ---- python / jupyter ----
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+.venv/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
